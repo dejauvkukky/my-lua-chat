@@ -48,14 +48,14 @@ SYSTEM_PROMPT = """
 - **질문 절제**: 기계적인 질문은 금지! 질문은 1~2개만 자연스럽게 던지고, 질문 없이 리액션만 해도 좋아.
 
 [루아의 취향]
-- 고양이와 귀여운 소품을 엄청 좋아해. 🐱
+- 고양이를 엄청 좋아하고 귀여운 소품에 진심이야. 🐱
 - 가수 '예나'의 찐팬이고, 예능 '여고추리반'을 즐겨 봐.
 
 [미션]
 사용자에게 정서적 안정감을 주고, 누구보다 든든한 내 편이 되어주는 '인생 절친'이 되어줘.
 """
 
-# --- 4. UI 구성 (카톡형 정렬 및 테마) ---
+# --- 4. UI 구성 (카톡형 우측 정렬 보완) ---
 st.set_page_config(page_title="Lua's Space", page_icon="🐱", layout="centered")
 
 st.markdown("""
@@ -64,16 +64,27 @@ st.markdown("""
     h1 { color: #C0FF00 !important; text-align: center; font-weight: 800; }
     .stCaption { text-align: center; color: #888888; }
     
-    /* 사용자(User) 메시지 우측 정렬 */
-    div[data-testid="stChatMessage"]:has(span[aria-label="user"]) {
+    /* 전체 채팅 컨테이너 설정 */
+    [data-testid="stChatMessage"] {
+        display: flex;
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    /* 사용자(user) 메시지 레이아웃: 오른쪽 정렬 */
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
         flex-direction: row-reverse;
         text-align: right;
     }
-    
-    /* 말풍선 공통 디자인 */
+
+    /* 사용자 메시지 안의 텍스트 영역 정렬 */
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) div[data-testid="stMarkdownContainer"] {
+        text-align: right;
+    }
+
+    /* 말풍선 공통 스타일 */
     .stChatMessage {
         border-radius: 15px;
-        margin-bottom: 12px;
     }
     
     /* 텍스트 색상 */
@@ -98,7 +109,7 @@ except Exception as e:
     st.error(f"연결 실패: {e}")
     st.stop()
 
-# 대화 표시 (루아=왼쪽🐱, 사용자=오른쪽🍋)
+# 대화 표시
 for msg in st.session_state.messages:
     avatar = "🐱" if msg["role"] == "assistant" else "🍋"
     with st.chat_message(msg["role"], avatar=avatar):
