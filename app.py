@@ -114,7 +114,7 @@ if prompt := st.chat_input("루아한테 할 말 있어?"):
 
         # API 호출 (단순 문자열 형식)
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash-exp",
             contents=full_prompt,
             config=types.GenerateContentConfig(
                 temperature=0.85,
