@@ -242,7 +242,7 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
 
             st.error(f"루아를 깨우는 데 실패했어: {final_e}")
 
-            answer = "미안, 지금 서버가 조금 아픈가 봐... 나중에 다시 말 걸어줄래? 😭"
+            answer = "미안, 지금 구글 서버가 조금 아픈가 봐... 나중에 다시 말 걸어줄래? 😭"
 
     
 
@@ -263,4 +263,3 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     st.session_state.messages.append({"role": "assistant", "content": answer})
 
     sheet.append_row(["assistant", answer])
-
