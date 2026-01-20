@@ -119,7 +119,7 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
             model="gemini-3-flash-preview", 
             contents=full_query,
             config={
-                "temperature": 1.0,  # 0.7에서 1.0으로 높이면 훨씬 대담해집니다!
+                "temperature": 0.85,  # 0.7에서 1.0으로 높이면 훨씬 대담해집니다!
                 "top_p": 0.95,
                 "max_output_tokens": 150, # 너무 길게 말 못하게 제한
             }
@@ -131,7 +131,7 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
             model="gemini-1.5-flash", 
             contents=full_query,
             config={
-                "temperature": 1.0,  # 0.7에서 1.0으로 높이면 훨씬 대담해집니다!
+                "temperature": 0.85,  # 0.7에서 1.0으로 높이면 훨씬 대담해집니다!
                 "top_p": 0.95,
                 "max_output_tokens": 150, # 너무 길게 말 못하게 제한
             }
