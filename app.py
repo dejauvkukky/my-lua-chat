@@ -76,24 +76,26 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
     try:
-        # 'models/'를 절대 붙이지 마세요. 라이브러리가 알아서 처리하게 둡니다.
+        # 1. Get Code에서 확인된 '진짜' 모델명을 사용합니다.
+        target_model = "gemini-3-flash-preview" 
+    
+        # 2. Get Code와 동일한 구조로 호출합니다.
         response = client.models.generate_content(
-            model="gemini-1.5-flash", 
-            contents=full_query
+            model=target_model, 
+            contents=full_query  # 스트림릿용으로 구성된 메시지 변수
         )
-        answer = response.text
+        
+        if response and response.text:
+            answer = response.text
+        else:
+            answer = "루아가 지금 생각을 정리하고 있어. 잠시 후 다시 말해줄래? 🎀"
     
     except Exception as e:
-        # 만약 위 방법도 실패(404)한다면, 주소 자동 생성을 방해하지 않는 'ID 방식' 시도
-        try:
-            response = client.models.generate_content(
-                model="gemini-1.5-pro", # 다른 주력 모델로 테스트
-                contents=full_query
-            )
-            answer = response.text
-        except Exception as final_e:
-            st.error(f"최종 호출 실패: {final_e}")
-            answer = "지금 루아가 깊은 잠에 빠졌나 봐. API 키를 다시 확인해볼까? 😭"
+        # 상세 에러 로그 출력 (문제 발생 시 확인용)
+        st.error(f"모델 호출 실패: {e}")
+        answer = "미안, 연결이 잠시 끊겼어. 다시 시도해봐! 😭"
+    
+    # 결과 출력
     st.markdown(answer)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
