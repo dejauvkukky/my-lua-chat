@@ -2,7 +2,6 @@ import streamlit as st
 from google import genai
 import gspread
 from google.oauth2.service_account import Credentials
-from google.genai import types
 
 # --- 1. 설정창(Secrets)에서 값 가져오기 ---
 try:
@@ -17,7 +16,7 @@ except Exception as e:
 # 공식 안정판 모델 호출을 위해 클라이언트 설정
 client = genai.Client(
     api_key=GEMINI_API_KEY,
-    http_options={'api_version': 'v1beta'}
+    http_options={'api_version': 'v1'}
 )
 
 def get_sheet():
@@ -93,29 +92,39 @@ if prompt := st.chat_input("루아한테 할 말 있어?"):
     sheet.append_row(["user", prompt])
 
     # AI 답변 생성
-    chat_history = [f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]]
-    full_query = f"{SYSTEM_PROMPT}\n\n최근 대화내용:\n" + "\n".join(chat_history)
-    
     try:
-        # 공식 Stable 모델 사용 (무료 한도 최적화)
-        lua_config = types.GenerateContentConfig(
-            temperature=0.85,
-            top_p=0.95,
-            max_output_tokens=1000,
-            candidate_count=1
-        )
-    
-        # 모델명을 gemini-1.5-flash로 명시
+        # Gemini API 형식에 맞게 메시지 구조화
+        gemini_messages = []
+        
+        # 최근 10개 메시지만 사용
+        recent_msgs = st.session_state.messages[-10:]
+        
+        for i, msg in enumerate(recent_msgs):
+            if msg["role"] == "user":
+                content = msg["content"]
+                # 첫 번째 메시지에만 시스템 프롬프트 추가
+                if i == 0:
+                    content = f"{SYSTEM_PROMPT}\n\n{content}"
+                gemini_messages.append({"role": "user", "parts": [content]})
+            else:
+                # assistant -> model로 변환 (Gemini API 표준)
+                gemini_messages.append({"role": "model", "parts": [msg["content"]]})
+        
+        # 공식 안정 버전 API 호출
         response = client.models.generate_content(
-            model="gemini-1.5-flash", 
-            contents=full_query,
-            config=lua_config
+            model="gemini-1.5-flash",
+            contents=gemini_messages,
+            config={
+                "temperature": 0.85,
+                "top_p": 0.95,
+                "max_output_tokens": 1000,
+            }
         )
         answer = response.text
     
     except Exception as e:
         # 한도 초과 시 429 에러 등이 발생할 수 있음
-        st.error(f"루아가 잠시 자리를 비웠어 (한도초과 등): {e}")
+        st.error(f"루아가 잠시 자리를 비웠어 (에러: {e})")
         answer = "미안, 나 지금 친구들이랑 노느라 톡을 못 봤어! 조금 이따가 다시 말 걸어줘! 😭"
     
     if not answer:
