@@ -89,7 +89,7 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
         try:
             # 이 형식은 구글 서버가 인식하는 절대 경로입니다.
             response = client.models.generate_content(
-                model="gemini-1.5-flash-002", 
+                model="publishers/google/models/gemini-1.5-flash",
                 contents=full_query
             )
             answer = response.text
