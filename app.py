@@ -2,6 +2,7 @@ import streamlit as st
 from google import genai
 import gspread
 from google.oauth2.service_account import Credentials # 인증 방식 변경
+from google.genai import types
 
 # --- 1. 설정창(Secrets)에서 값 가져오기 ---
 try:
@@ -92,29 +93,38 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
     try:
-        # Get Code에서 본 이름 그대로 사용
+        # 공통 설정값을 미리 변수로 만들어두면 관리가 편해!
+        lua_config = types.GenerateContentConfig(
+            temperature=0.85,
+            top_p=0.95,
+            max_output_tokens=1000, # 800보다 조금 더 여유 있게 늘렸어!
+            candidate_count=1
+        )
+    
+        # 1. 메인 모델 호출 (Gemini 3 Flash Preview)
         response = client.models.generate_content(
             model="gemini-3-flash-preview", 
             contents=full_query,
-            config={
-                "temperature": 0.85,  # 0.7에서 1.0으로 높이면 훨씬 대담해집니다!
-                "top_p": 0.95,
-                "max_output_tokens": 200, # 너무 길게 말 못하게 제한
-            }
+            config=lua_config
         )
         answer = response.text
+    
     except Exception as e:
-        # 만약 위 모델이 안되면 계정 권한에 따라 1.5-flash로 자동 전환
-        response = client.models.generate_content(
-            model="gemini-1.5-flash", 
-            contents=full_query,
-            config={
-                "temperature": 0.85,  # 0.7에서 1.0으로 높이면 훨씬 대담해집니다!
-                "top_p": 0.95,
-                "max_output_tokens": 200, # 너무 길게 말 못하게 제한
-            }
-        )
-        answer = response.text
+        # 2. 메인 모델 실패 시 1.5-flash로 자동 전환
+        try:
+            response = client.models.generate_content(
+                model="gemini-1.5-flash", 
+                contents=full_query,
+                config=lua_config
+            )
+            answer = response.text
+        except Exception as final_e:
+            st.error(f"루아를 깨우는 데 실패했어: {final_e}")
+            answer = "미안, 지금 구글 서버가 조금 아픈가 봐... 나중에 다시 말 걸어줄래? 😭"
+    
+    # 만약 대답이 비어있을 경우를 대비한 안전장치
+    if not answer:
+        answer = "응? 방금 뭐라고 했어? 다시 한번만 말해줘! ㅎㅎ"
     
     # 결과 출력
     st.markdown(answer)
