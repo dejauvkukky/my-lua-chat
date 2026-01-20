@@ -38,11 +38,14 @@ st.title("🎀 루아랑 수다 떨기")
 try:
     sheet = get_sheet()
     if "messages" not in st.session_state:
+        # 시트 데이터를 가져올 때 에러가 나는지 확인
         records = sheet.get_all_records()
-        # 최근 10개 대화 불러오기
-        st.session_state.messages = [{"role": r["role"], "content": r["content"]} for r in records[-10:]]
+        if records:
+            st.session_state.messages = [{"role": r["role"], "content": r["content"]} for r in records[-15:]]
+        else:
+            st.session_state.messages = [] # 데이터가 없으면 빈 리스트로 시작
 except Exception as e:
-    st.error(f"루아랑 연결이 잘 안 돼... (시트 연결 오류: {e})")
+    st.error(f"루아랑 연결이 잘 안 돼... 상세 이유: {type(e).__name__} - {str(e)}")
     st.stop()
 
 # 대화 표시
