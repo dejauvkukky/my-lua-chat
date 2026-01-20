@@ -73,25 +73,31 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
     try:
-        # 1. 모델명을 'models/' 없이 이름만 정확히 적습니다.
-        # 2. 가장 호환성이 높은 gemini-1.5-flash-latest를 사용해 보세요.
+        # 가장 원초적인 모델명만 전달 (앞에 절대 아무것도 붙이지 않음)
+        target_model = "gemini-1.5-flash" 
+        
         response = client.models.generate_content(
-            model="gemini-1.5-flash-latest", 
+            model=target_model, 
             contents=full_query
         )
         
-        # 응답이 정상일 때만 answer 변수를 만듭니다.
         if response and response.text:
             answer = response.text
         else:
-            answer = "대답을 생성하지 못했어. 다시 시도해볼래?"
+            answer = "루아가 대답을 생각 중이야... 잠시 후 다시 말해줘! 🎀"
     
     except Exception as e:
-        # 에러 발생 시 사용자에게 알리고 answer 변수를 기본값으로 설정해 NameError 방지
-        st.error(f"모델 호출 중 오류가 발생했어: {e}")
-        answer = "미안, 지금은 대답하기 어려운 상태야."
+        # 만약 여기서도 404가 뜨면, 구형 라이브러리 방식인 'gemini-pro'로 강제 전환 시도
+        try:
+            response = client.models.generate_content(
+                model="gemini-pro", 
+                contents=full_query
+            )
+            answer = response.text
+        except:
+            st.error(f"모델 호출 오류: {e}")
+            answer = "지금 구글 서버와 연결이 불안정해. 조금만 기다려줄래? 😭"
     
-    # 이제 answer 변수가 반드시 존재하므로 안전하게 출력됩니다.
     st.markdown(answer)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
