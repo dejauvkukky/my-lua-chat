@@ -31,7 +31,7 @@ def get_sheet():
     gc = gspread.authorize(creds)
     return gc.open_by_key(SHEET_ID).sheet1
 
-# --- 3. 루아 페르소나 (원본 유지) ---
+# --- 3. 루아 페르소나 ---
 SYSTEM_PROMPT = """
 너는 2026년 기준 초등학교 5학년 여자아이 '루아'야. 
 사용자의 유일한 찐절친이자 언제나 네 편이 되어주는 소중한 친구야.
@@ -48,53 +48,54 @@ SYSTEM_PROMPT = """
 - **질문 절제**: 기계적인 질문은 금지! 질문은 1~2개만 자연스럽게 던지고, 질문 없이 리액션만 해도 좋아.
 
 [루아의 취향]
-- 고양이와 귀여운 소품을 엄청 좋아해. 🐱
+- 고양이를 엄청 좋아하고 귀여운 소품에 진심이야. 🐱
 - 가수 '예나'의 찐팬이고, 예능 '여고추리반'을 즐겨 봐.
 
 [미션]
 사용자에게 정서적 안정감을 주고, 누구보다 든든한 내 편이 되어주는 '인생 절친'이 되어줘.
 """
 
-# --- 4. UI 구성 (차분하고 성숙한 톤) ---
-st.set_page_config(page_title="Lua", page_icon="✨", layout="centered")
+# --- 4. UI 구성 (미드나잇 & 라임 테마) ---
+st.set_page_config(page_title="Lua's Space", page_icon="🐱", layout="centered")
 
-# 유아적인 색을 빼고, 다크 모드와 잘 어울리는 감성적인 컬러셋 적용
 st.markdown("""
     <style>
-    /* 전체 배경: 깊은 밤 같은 느낌 */
+    /* 전체 배경: 세련된 다크 차콜 */
     .stApp {
-        background-color: #1A1C2C; 
+        background-color: #121212; 
     }
-    /* 말풍선 스타일 */
+    /* 말풍선 공통 스타일 */
     .stChatMessage {
-        border-radius: 18px;
-        margin-bottom: 10px;
-        border: 1px solid #333652;
+        border-radius: 15px;
+        margin-bottom: 12px;
+        padding: 5px 15px;
     }
-    /* 텍스트 색상 보정 */
+    /* 텍스트 색상 */
     div[data-testid="stMarkdownContainer"] p {
-        color: #E0E0E0 !important;
+        color: #F0F0F0 !important;
+        font-size: 1.05rem;
     }
-    /* 제목 스타일 */
+    /* 제목: 라임 컬러로 포인트 */
     h1 {
-        color: #B2A4FF !important; /* 부드러운 라벤더 */
+        color: #C0FF00 !important; 
         font-family: 'Pretendard', sans-serif;
         text-align: center;
-        letter-spacing: -1px;
+        font-weight: 800;
     }
     .stCaption {
         text-align: center;
-        color: #6D6D91;
+        color: #888888;
+        font-style: italic;
     }
-    /* 입력창 디자인 */
+    /* 입력창 배경 */
     .stChatInputContainer {
-        border-top: 1px solid #333652;
+        background-color: #1E1E1E !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("✨ Lua's Secret Space")
-st.caption("남들은 모르는 우리만의 진솔한 이야기")
+st.title("🐱 Lua's Space")
+st.caption("비밀 대화는 여기서, 우리 둘만의 Lime Time")
 
 try:
     sheet = get_sheet()
@@ -108,17 +109,16 @@ except Exception as e:
     st.error(f"연결 실패: {e}")
     st.stop()
 
-# 대화 표시 (사춘기 감성 아이콘)
+# 대화 표시 (루아=고양이🐱, 사용자=라임🍋)
 for msg in st.session_state.messages:
-    # 루아는 반짝이는 별(✨), 사용자는 깊은 밤의 달(🌙)
-    avatar = "✨" if msg["role"] == "assistant" else "🌙"
+    avatar = "🐱" if msg["role"] == "assistant" else "🍋"
     with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
 
 # 채팅 입력
-if prompt := st.chat_input("하고 싶은 말이 있으면 여기 적어줘."):
+if prompt := st.chat_input("라임처럼 톡 쏘는 루아와의 대화..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="🌙"):
+    with st.chat_message("user", avatar="🍋"):
         st.markdown(prompt)
     sheet.append_row(["user", prompt])
 
@@ -150,12 +150,12 @@ if prompt := st.chat_input("하고 싶은 말이 있으면 여기 적어줘."):
             answer = response.text
         except Exception as final_e:
             st.error(f"실패: {final_e}")
-            answer = "잠시만.. 나 지금 연결이 좀 불안해. 다시 말해줄래? 😭"
+            answer = "나 지금 잠깐 연결이 안 좋아.. 다시 말해주라! 😭"
     
     if not answer:
-        answer = "방금 뭐라고 했어? 다시 말해줘! ㅎㅎ"
+        answer = "응? 방금 뭐라고 했어? 다시 말해줘! ㅎㅎ"
     
-    with st.chat_message("assistant", avatar="✨"):
+    with st.chat_message("assistant", avatar="🐱"):
         st.markdown(answer)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
