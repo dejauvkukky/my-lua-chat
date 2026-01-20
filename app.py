@@ -59,9 +59,35 @@ SYSTEM_PROMPT = """
 사용자에게 정서적 안정감을 주고, 누구보다 든든한 내 편이 되어주는 '인생 절친'이 되어줘.
 """
 
-# --- 4. UI 구성 ---
-st.set_page_config(page_title="루아", layout="centered")
-st.title("루아랑 수다 떨기")
+# --- 4. UI 구성 (차분한 감성 톤으로 변경) ---
+st.set_page_config(page_title="루아(Lua)", page_icon="🌙", layout="centered")
+
+# 유아틱한 핑크를 빼고, 세련된 모던 핑크/베이지 스타일 적용
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #FDF7F5; /* 차분한 베이지 핑크 */
+    }
+    .stChatMessage {
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        margin-bottom: 8px;
+    }
+    h1 {
+        color: #8E6E69 !important; /* 차분한 로즈 브라운 */
+        font-family: 'Nanum Gothic', sans-serif;
+        text-align: center;
+        font-weight: 700;
+    }
+    .stCaption {
+        text-align: center;
+        color: #A68F8B;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("🌙 루아랑 수다 떨기")
+st.caption("비슷한 고민을 나누는 우리들만의 비밀 공간")
 
 try:
     sheet = get_sheet()
@@ -76,15 +102,17 @@ except Exception as e:
     st.error(f"루아랑 연결이 잘 안 돼... 상세 이유: {type(e).__name__} - {str(e)}")
     st.stop()
 
-# 대화 표시
+# 대화 표시 (감성적인 아이콘 사용)
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
+    # 루아는 달(🌙), 사용자는 구름(☁️) 아이콘으로 한층 차분하게 설정
+    avatar = "🌙" if msg["role"] == "assistant" else "☁️"
+    with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
 
 # 채팅 입력
 if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar="☁️"):
         st.markdown(prompt)
     sheet.append_row(["user", prompt])
 
@@ -97,7 +125,7 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
         lua_config = types.GenerateContentConfig(
             temperature=0.85,
             top_p=0.95,
-            max_output_tokens=1000, # 800보다 조금 더 여유 있게 늘렸어!
+            max_output_tokens=1000, 
             candidate_count=1
         )
     
@@ -120,14 +148,15 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
             answer = response.text
         except Exception as final_e:
             st.error(f"루아를 깨우는 데 실패했어: {final_e}")
-            answer = "미안, 지금 구글 서버가 조금 아픈가 봐... 나중에 다시 말 걸어줄래? 😭"
+            answer = "미안, 지금 서버가 조금 아픈가 봐... 나중에 다시 말 걸어줄래? 😭"
     
     # 만약 대답이 비어있을 경우를 대비한 안전장치
     if not answer:
         answer = "응? 방금 뭐라고 했어? 다시 한번만 말해줘! ㅎㅎ"
     
     # 결과 출력
-    st.markdown(answer)
+    with st.chat_message("assistant", avatar="🌙"):
+        st.markdown(answer)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
     sheet.append_row(["assistant", answer])
