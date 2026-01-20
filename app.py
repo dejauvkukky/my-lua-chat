@@ -72,11 +72,16 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     chat_history = [f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]]
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
-    response = client.models.generate_content(
-        model="gemini-1.5-flash",
-        contents=full_query
-    )
-    answer = response.text
+    try:
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",  # 'models/'를 반드시 제거하세요
+            contents=full_query
+        )
+        answer = response.text
+    except Exception as e:
+        st.error(f"모델 호출 중 오류 발생: {e}")
+        # 만약 위 모델이 안된다면 아래 모델로 시도해보세요
+        # model="gemini-1.5-flash-002"
 
     with st.chat_message("assistant"):
         st.markdown(answer)
