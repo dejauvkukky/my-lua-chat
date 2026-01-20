@@ -16,7 +16,7 @@ except Exception as e:
 # --- 2. 초기 설정 ---
 client = genai.Client(
     api_key=st.secrets["GEMINI_API_KEY"],
-    http_options={'api_version': 'v1'} # 정식 v1 버전 사용
+    http_options={'api_version': 'v1beta'} # 여기가 핵심입니다!
 )
 
 def get_sheet():
@@ -76,24 +76,19 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
     try:
-        # 1. Get Code에서 확인된 '진짜' 모델명을 사용합니다.
-        target_model = "gemini-3-flash-preview" 
-    
-        # 2. Get Code와 동일한 구조로 호출합니다.
+        # Get Code에서 본 이름 그대로 사용
         response = client.models.generate_content(
-            model=target_model, 
-            contents=full_query  # 스트림릿용으로 구성된 메시지 변수
+            model="gemini-3-flash-preview", 
+            contents=full_query
         )
-        
-        if response and response.text:
-            answer = response.text
-        else:
-            answer = "루아가 지금 생각을 정리하고 있어. 잠시 후 다시 말해줄래? 🎀"
-    
+        answer = response.text
     except Exception as e:
-        # 상세 에러 로그 출력 (문제 발생 시 확인용)
-        st.error(f"모델 호출 실패: {e}")
-        answer = "미안, 연결이 잠시 끊겼어. 다시 시도해봐! 😭"
+        # 만약 위 모델이 안되면 계정 권한에 따라 1.5-flash로 자동 전환
+        response = client.models.generate_content(
+            model="gemini-1.5-flash", 
+            contents=full_query
+        )
+        answer = response.text
     
     # 결과 출력
     st.markdown(answer)
