@@ -16,7 +16,7 @@ except Exception as e:
 # --- 2. 초기 설정 ---
 client = genai.Client(
     api_key=st.secrets["GEMINI_API_KEY"],
-    http_options={'api_version': 'v1'} # 이 줄을 추가해 보세요
+    http_options={'api_version': 'v1'} # v1beta가 아닌 정식 v1으로 강제 지정
 )
 
 def get_sheet():
@@ -75,34 +75,27 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     chat_history = [f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]]
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
-    # app.py 75번 줄부터의 코드 교체
     try:
-        # 1. 2026년 현재 가장 안정적인 최신 모델 식별자를 사용합니다.
-        # 2. 'models/' 없이 이름만 사용하되, SDK가 경로를 꼬지 않도록 변수에 담아 전달합니다.
-        stable_model = "gemini-1.5-flash-002" 
-    
+        # 2026년 기준 가장 확실한 호출 방식입니다. 
+        # 'models/' 접두사를 라이브러리가 알아서 붙이도록 모델명만 전달합니다.
         response = client.models.generate_content(
-            model=stable_model, 
+            model="gemini-1.5-flash", 
             contents=full_query
         )
-        
-        if response and response.text:
-            answer = response.text
-        else:
-            answer = "루아가 지금 생각을 정리하고 있어! 다시 한번 말 걸어줄래? 🎀"
+        answer = response.text
     
     except Exception as e:
-        # 만약 위의 최신 모델도 404가 뜬다면, 서버가 인식하는 '전체 경로'를 수동으로 입력합니다.
+        # 만약 위 방법이 실패하면, 라이브러리를 거치지 않는 '전체 ID' 방식을 시도합니다.
         try:
+            # 이 형식은 구글 서버가 인식하는 절대 경로입니다.
             response = client.models.generate_content(
-                model="publishers/google/models/gemini-1.5-flash", 
+                model="gemini-1.5-flash-002", 
                 contents=full_query
             )
             answer = response.text
-        except Exception as final_e:
-            st.error(f"최종 모델 호출 실패: {final_e}")
-            answer = "구글 서버 점검 중일 수도 있어. 잠시 후에 다시 시도해보자! 😭"
-    
+        except Exception as e2:
+            st.error(f"최종 오류 로그: {e2}")
+            answer = "루아가 잠시 자고 있어. 다시 깨워볼까? 🎀"
     st.markdown(answer)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
