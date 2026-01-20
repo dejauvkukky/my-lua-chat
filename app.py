@@ -73,17 +73,26 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
     try:
+        # 1. 모델명을 'models/' 없이 이름만 정확히 적습니다.
+        # 2. 가장 호환성이 높은 gemini-1.5-flash-latest를 사용해 보세요.
         response = client.models.generate_content(
-            model="gemini-1.5-flash",  # 'models/'를 반드시 제거하세요
+            model="gemini-1.5-flash-latest", 
             contents=full_query
         )
-        answer = response.text
+        
+        # 응답이 정상일 때만 answer 변수를 만듭니다.
+        if response and response.text:
+            answer = response.text
+        else:
+            answer = "제미나이가 대답을 생성하지 못했어. 다시 시도해볼래?"
+    
     except Exception as e:
-        st.error(f"모델 호출 중 오류 발생: {e}")
-        # 만약 위 모델이 안된다면 아래 모델로 시도해보세요
-        # model="gemini-1.5-flash-002"
-
-    with st.chat_message("assistant"):
-        st.markdown(answer)
+        # 에러 발생 시 사용자에게 알리고 answer 변수를 기본값으로 설정해 NameError 방지
+        st.error(f"모델 호출 중 오류가 발생했어: {e}")
+        answer = "미안, 지금은 대답하기 어려운 상태야."
+    
+    # 이제 answer 변수가 반드시 존재하므로 안전하게 출력됩니다.
+    st.markdown(answer)
+    
     st.session_state.messages.append({"role": "assistant", "content": answer})
     sheet.append_row(["assistant", answer])
