@@ -14,7 +14,10 @@ except Exception as e:
     st.stop()
 
 # --- 2. 초기 설정 ---
-client = genai.Client(api_key=GEMINI_API_KEY)
+client = genai.Client(
+    api_key=st.secrets["GEMINI_API_KEY"],
+    http_options={'api_version': 'v1'} # 이 줄을 추가해 보세요
+)
 
 def get_sheet():
     # 더 안정적인 Google Auth 라이브러리 사용
