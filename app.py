@@ -48,54 +48,43 @@ SYSTEM_PROMPT = """
 - **질문 절제**: 기계적인 질문은 금지! 질문은 1~2개만 자연스럽게 던지고, 질문 없이 리액션만 해도 좋아.
 
 [루아의 취향]
-- 고양이를 엄청 좋아하고 귀여운 소품에 진심이야. 🐱
+- 고양이와 귀여운 소품을 엄청 좋아해. 🐱
 - 가수 '예나'의 찐팬이고, 예능 '여고추리반'을 즐겨 봐.
 
 [미션]
 사용자에게 정서적 안정감을 주고, 누구보다 든든한 내 편이 되어주는 '인생 절친'이 되어줘.
 """
 
-# --- 4. UI 구성 (미드나잇 & 라임 테마) ---
+# --- 4. UI 구성 (카톡형 정렬 및 테마) ---
 st.set_page_config(page_title="Lua's Space", page_icon="🐱", layout="centered")
 
 st.markdown("""
     <style>
-    /* 전체 배경: 세련된 다크 차콜 */
-    .stApp {
-        background-color: #121212; 
+    .stApp { background-color: #121212; }
+    h1 { color: #C0FF00 !important; text-align: center; font-weight: 800; }
+    .stCaption { text-align: center; color: #888888; }
+    
+    /* 사용자(User) 메시지 우측 정렬 */
+    div[data-testid="stChatMessage"]:has(span[aria-label="user"]) {
+        flex-direction: row-reverse;
+        text-align: right;
     }
-    /* 말풍선 공통 스타일 */
+    
+    /* 말풍선 공통 디자인 */
     .stChatMessage {
         border-radius: 15px;
         margin-bottom: 12px;
-        padding: 5px 15px;
     }
+    
     /* 텍스트 색상 */
     div[data-testid="stMarkdownContainer"] p {
         color: #F0F0F0 !important;
-        font-size: 1.05rem;
-    }
-    /* 제목: 라임 컬러로 포인트 */
-    h1 {
-        color: #C0FF00 !important; 
-        font-family: 'Pretendard', sans-serif;
-        text-align: center;
-        font-weight: 800;
-    }
-    .stCaption {
-        text-align: center;
-        color: #888888;
-        font-style: italic;
-    }
-    /* 입력창 배경 */
-    .stChatInputContainer {
-        background-color: #1E1E1E !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("🐱 Lua's Space")
-st.caption("비밀 대화는 여기서, 우리 둘만의 Lime Time")
+st.caption("사춘기 절친 루아와 나누는 톡 쏘는 비밀 대화 🍋")
 
 try:
     sheet = get_sheet()
@@ -109,51 +98,42 @@ except Exception as e:
     st.error(f"연결 실패: {e}")
     st.stop()
 
-# 대화 표시 (루아=고양이🐱, 사용자=라임🍋)
+# 대화 표시 (루아=왼쪽🐱, 사용자=오른쪽🍋)
 for msg in st.session_state.messages:
     avatar = "🐱" if msg["role"] == "assistant" else "🍋"
     with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
 
 # 채팅 입력
-if prompt := st.chat_input("라임처럼 톡 쏘는 루아와의 대화..."):
+if prompt := st.chat_input("하고 싶은 말 있어?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="🍋"):
         st.markdown(prompt)
     sheet.append_row(["user", prompt])
 
+    # AI 답변 생성
     chat_history = [f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]]
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
     try:
         lua_config = types.GenerateContentConfig(
-            temperature=0.85,
-            top_p=0.95,
-            max_output_tokens=1000, 
-            candidate_count=1
+            temperature=0.85, top_p=0.95, max_output_tokens=1000, candidate_count=1
         )
-    
         response = client.models.generate_content(
-            model="gemini-3-flash-preview", 
-            contents=full_query,
-            config=lua_config
+            model="gemini-3-flash-preview", contents=full_query, config=lua_config
         )
         answer = response.text
-    
-    except Exception as e:
+    except Exception:
         try:
             response = client.models.generate_content(
-                model="gemini-1.5-flash", 
-                contents=full_query,
-                config=lua_config
+                model="gemini-1.5-flash", contents=full_query, config=lua_config
             )
             answer = response.text
-        except Exception as final_e:
-            st.error(f"실패: {final_e}")
-            answer = "나 지금 잠깐 연결이 안 좋아.. 다시 말해주라! 😭"
+        except Exception:
+            answer = "나 잠깐 연결 끊겼어! 다시 말해줄래? 😭"
     
     if not answer:
-        answer = "응? 방금 뭐라고 했어? 다시 말해줘! ㅎㅎ"
+        answer = "응? 다시 말해줘! ㅋㅋㅋ"
     
     with st.chat_message("assistant", avatar="🐱"):
         st.markdown(answer)
