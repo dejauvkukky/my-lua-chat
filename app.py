@@ -113,9 +113,9 @@ if prompt := st.chat_input("루아한테 할 말 있어?"):
 루아의 답변:"""
 
         # API 호출 (단순 문자열 형식)
-        # gemini-1.5-flash-8b: 가장 가벼운 무료 모델 (한도가 다를 수 있음)
+        # gemini-2.0-flash-exp: 최신 무료 실험 모델
         response = client.models.generate_content(
-            model="gemini-1.5-flash-8b",
+            model="models/gemini-2.0-flash-exp",
             contents=full_prompt,
             config=types.GenerateContentConfig(
                 temperature=0.85,
