@@ -263,4 +263,3 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     st.session_state.messages.append({"role": "assistant", "content": answer})
 
     sheet.append_row(["assistant", answer])
-
