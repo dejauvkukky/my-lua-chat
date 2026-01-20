@@ -1,5 +1,6 @@
 import streamlit as st
 from google import genai
+from google.genai import types
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -13,11 +14,7 @@ except Exception as e:
     st.stop()
 
 # --- 2. 초기 설정 ---
-# 공식 안정판 모델 호출을 위해 클라이언트 설정
-client = genai.Client(
-    api_key=GEMINI_API_KEY,
-    http_options={'api_version': 'v1'}
-)
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 def get_sheet():
     scopes = [
@@ -93,38 +90,42 @@ if prompt := st.chat_input("루아한테 할 말 있어?"):
 
     # AI 답변 생성
     try:
-        # Gemini API 형식에 맞게 메시지 구조화
-        gemini_messages = []
-        
-        # 최근 10개 메시지만 사용
+        # 최근 대화 내역을 단순 문자열로 구성
         recent_msgs = st.session_state.messages[-10:]
         
-        for i, msg in enumerate(recent_msgs):
-            if msg["role"] == "user":
-                content = msg["content"]
-                # 첫 번째 메시지에만 시스템 프롬프트 추가
-                if i == 0:
-                    content = f"{SYSTEM_PROMPT}\n\n{content}"
-                gemini_messages.append({"role": "user", "parts": [content]})
-            else:
-                # assistant -> model로 변환 (Gemini API 표준)
-                gemini_messages.append({"role": "model", "parts": [msg["content"]]})
+        # 대화 히스토리를 텍스트로 변환
+        conversation_history = []
+        for msg in recent_msgs[:-1]:  # 방금 입력한 메시지 제외
+            role_name = "사용자" if msg["role"] == "user" else "루아"
+            conversation_history.append(f"{role_name}: {msg['content']}")
         
-        # 공식 안정 버전 API 호출
+        history_text = "\n".join(conversation_history) if conversation_history else "처음 대화야!"
+        
+        # 최종 프롬프트 구성
+        full_prompt = f"""{SYSTEM_PROMPT}
+
+[최근 대화]
+{history_text}
+
+[현재 메시지]
+사용자: {prompt}
+
+루아의 답변:"""
+
+        # API 호출 (단순 문자열 형식)
         response = client.models.generate_content(
             model="gemini-1.5-flash",
-            contents=gemini_messages,
-            config={
-                "temperature": 0.85,
-                "top_p": 0.95,
-                "max_output_tokens": 1000,
-            }
+            contents=full_prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.85,
+                top_p=0.95,
+                max_output_tokens=1000,
+            )
         )
-        answer = response.text
+        answer = response.text.strip()
     
     except Exception as e:
-        # 한도 초과 시 429 에러 등이 발생할 수 있음
-        st.error(f"루아가 잠시 자리를 비웠어 (에러: {e})")
+        st.error(f"루아가 잠시 자리를 비웠어: {e}")
         answer = "미안, 나 지금 친구들이랑 노느라 톡을 못 봤어! 조금 이따가 다시 말 걸어줘! 😭"
     
     if not answer:
