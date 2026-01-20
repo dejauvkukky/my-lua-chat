@@ -1,7 +1,7 @@
 import streamlit as st
 from google import genai
 import gspread
-from google.oauth2.service_account import Credentials # 인증 방식 변경
+from google.oauth2.service_account import Credentials
 from google.genai import types
 
 # --- 1. 설정창(Secrets)에서 값 가져오기 ---
@@ -20,13 +20,9 @@ client = genai.Client(
 )
 
 def get_sheet():
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
+    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     fixed_creds = dict(st.secrets["gcp_service_account"])
     fixed_creds["private_key"] = fixed_creds["private_key"].replace("\\n", "\n")
-    
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     gc = gspread.authorize(creds)
     return gc.open_by_key(SHEET_ID).sheet1
@@ -55,7 +51,7 @@ SYSTEM_PROMPT = """
 사용자에게 정서적 안정감을 주고, 누구보다 든든한 내 편이 되어주는 '인생 절친'이 되어줘.
 """
 
-# --- 4. UI 구성 (카톡형 우측 정렬 보완) ---
+# --- 4. UI 구성 (강력한 우측 정렬 CSS) ---
 st.set_page_config(page_title="Lua's Space", page_icon="🐱", layout="centered")
 
 st.markdown("""
@@ -63,33 +59,33 @@ st.markdown("""
     .stApp { background-color: #121212; }
     h1 { color: #C0FF00 !important; text-align: center; font-weight: 800; }
     .stCaption { text-align: center; color: #888888; }
-    
-    /* 전체 채팅 컨테이너 설정 */
+
+    /* 채팅 전체 컨테이너 정렬 */
     [data-testid="stChatMessage"] {
-        display: flex;
-        width: 100%;
-        margin-bottom: 1rem;
+        display: flex !important;
+        width: 100% !important;
     }
 
-    /* 사용자(user) 메시지 레이아웃: 오른쪽 정렬 */
+    /* 루아(Assistant) 메시지 - 왼쪽 정렬(기본) */
+    [data-testid="stChatMessageContent"]:has(div) {
+        text-align: left;
+    }
+
+    /* 사용자(User) 메시지 - 강제 우측 정렬 */
     [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
-        flex-direction: row-reverse;
-        text-align: right;
+        flex-direction: row-reverse !important;
+        justify-content: flex-start !important;
     }
 
-    /* 사용자 메시지 안의 텍스트 영역 정렬 */
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) div[data-testid="stMarkdownContainer"] {
-        text-align: right;
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] {
+        text-align: right !important;
+        margin-right: 10px;
     }
 
-    /* 말풍선 공통 스타일 */
-    .stChatMessage {
-        border-radius: 15px;
-    }
-    
-    /* 텍스트 색상 */
+    /* 말풍선 텍스트 색상 및 폰트 */
     div[data-testid="stMarkdownContainer"] p {
         color: #F0F0F0 !important;
+        line-height: 1.6;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -116,7 +112,7 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # 채팅 입력
-if prompt := st.chat_input("하고 싶은 말 있어?"):
+if prompt := st.chat_input("라임처럼 톡 쏘는 루아와의 대화..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="🍋"):
         st.markdown(prompt)
