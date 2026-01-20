@@ -75,31 +75,33 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     chat_history = [f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]]
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
+    # app.py 75번 줄부터의 코드 교체
     try:
-        # 가장 원초적인 모델명만 전달 (앞에 절대 아무것도 붙이지 않음)
-        target_model = "gemini-1.5-flash" 
-        
+        # 1. 2026년 현재 가장 안정적인 최신 모델 식별자를 사용합니다.
+        # 2. 'models/' 없이 이름만 사용하되, SDK가 경로를 꼬지 않도록 변수에 담아 전달합니다.
+        stable_model = "gemini-1.5-flash-002" 
+    
         response = client.models.generate_content(
-            model=target_model, 
+            model=stable_model, 
             contents=full_query
         )
         
         if response and response.text:
             answer = response.text
         else:
-            answer = "루아가 대답을 생각 중이야... 잠시 후 다시 말해줘! 🎀"
+            answer = "루아가 지금 생각을 정리하고 있어! 다시 한번 말 걸어줄래? 🎀"
     
     except Exception as e:
-        # 만약 여기서도 404가 뜨면, 구형 라이브러리 방식인 'gemini-pro'로 강제 전환 시도
+        # 만약 위의 최신 모델도 404가 뜬다면, 서버가 인식하는 '전체 경로'를 수동으로 입력합니다.
         try:
             response = client.models.generate_content(
-                model="gemini-pro", 
+                model="publishers/google/models/gemini-1.5-flash", 
                 contents=full_query
             )
             answer = response.text
-        except:
-            st.error(f"모델 호출 오류: {e}")
-            answer = "지금 구글 서버와 연결이 불안정해. 조금만 기다려줄래? 😭"
+        except Exception as final_e:
+            st.error(f"최종 모델 호출 실패: {final_e}")
+            answer = "구글 서버 점검 중일 수도 있어. 잠시 후에 다시 시도해보자! 😭"
     
     st.markdown(answer)
     
