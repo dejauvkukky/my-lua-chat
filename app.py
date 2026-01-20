@@ -4,7 +4,8 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 1. 필수 정보 설정 (직접 입력하세요) ---
-GEMINI_API_KEY = "AIzaSyAEO8-LtE-r5plhTLjdy3uu03UszjEellI"
+# 직접 입력 대신 Streamlit의 설정을 읽어오도록 변경
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 SHEET_ID = "1u5uuGppgo8iNuJ28nG-jA3Syf1F5uSMkqTYWrU4a_xI"
 SERVICE_ACCOUNT_INFO = {
     # 다운로드받은 JSON 파일의 내용을 그대로 여기에 복사해서 넣으세요
