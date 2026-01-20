@@ -22,6 +22,11 @@ def get_sheet():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
+
+    # 중요: \n 이 실제 줄바꿈이 아니라 문자로 들어오는 경우를 대비해 보정
+    fixed_creds = dict(st.secrets["gcp_service_account"])
+    fixed_creds["private_key"] = fixed_creds["private_key"].replace("\\n", "\n")
+    
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     gc = gspread.authorize(creds)
     return gc.open_by_key(SHEET_ID).sheet1
