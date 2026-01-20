@@ -1,4 +1,4 @@
 streamlit
-google-genai
+google-genai==0.3.0  # 버전을 명시적으로 지정
 gspread
 oauth2client
