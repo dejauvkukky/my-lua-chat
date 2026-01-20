@@ -1,25 +1,28 @@
 import streamlit as st
-from google import genai  # 최신 라이브러리로 변경
+from google import genai
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials # 인증 방식 변경
 
 # --- 1. 설정창(Secrets)에서 값 가져오기 ---
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     SHEET_ID = st.secrets["SHEET_ID"]
-    # 서비스 계정 정보는 Secrets에 [gcp_service_account] 섹션으로 저장했다고 가정합니다.
-    SERVICE_ACCOUNT_INFO = st.secrets["gcp_service_account"]
-except KeyError as e:
-    st.error(f"설정값(Secrets)을 찾을 수 없어: {e} 🥺")
+    # Secrets에 [gcp_service_account] 섹션으로 저장된 데이터를 딕셔너리로 변환
+    creds_dict = dict(st.secrets["gcp_service_account"])
+except Exception as e:
+    st.error(f"설정(Secrets) 로드 실패: {e}")
     st.stop()
 
 # --- 2. 초기 설정 ---
-# 최신 방식의 클라이언트 생성
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 def get_sheet():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(SERVICE_ACCOUNT_INFO, scope)
+    # 더 안정적인 Google Auth 라이브러리 사용
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     gc = gspread.authorize(creds)
     return gc.open_by_key(SHEET_ID).sheet1
 
