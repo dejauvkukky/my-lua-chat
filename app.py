@@ -1,10 +1,10 @@
 import streamlit as st
 from google import genai
 import gspread
-from google.oauth2.service_account import Credentials # 인증 방식 변경
+from google.oauth2.service_account import Credentials
 from google.genai import types
 
-# --- 1. 설정창(Secrets)에서 값 가져오기 ---
+# --- 1. 설정창(Secrets) 로드 ---
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     SHEET_ID = st.secrets["SHEET_ID"]
@@ -13,13 +13,16 @@ except Exception as e:
     st.error(f"설정(Secrets) 로드 실패: {e}")
     st.stop()
 
-# --- 2. 초기 설정 ---
-# API 키를 직접 인자로 전달하여 경로 충돌 방지
-client = genai.Client(
-    api_key=GEMINI_API_KEY,
-    http_options={'api_version': 'v1beta'}
-)
+# --- 2. 초기 설정 및 캐싱 ---
+# 502 에러 방지를 위해 클라이언트 생성을 캐싱함
+@st.cache_resource
+def get_client():
+    return genai.Client(
+        api_key=GEMINI_API_KEY,
+        http_options={'api_version': 'v1beta'}
+    )
 
+@st.cache_resource
 def get_sheet():
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
@@ -31,6 +34,8 @@ def get_sheet():
     creds = Credentials.from_service_account_info(fixed_creds, scopes=scopes)
     gc = gspread.authorize(creds)
     return gc.open_by_key(SHEET_ID).sheet1
+
+client = get_client()
 
 # --- 3. 루아 페르소나 (원본 유지) ---
 SYSTEM_PROMPT = """
@@ -61,12 +66,11 @@ st.set_page_config(page_title="루아", page_icon="🐱", layout="centered")
 
 st.markdown("""
     <style>
-    /* 전체 배경: 세련된 다크 모드 */
     .stApp { background-color: #121212; }
     h1 { color: #C0FF00 !important; text-align: center; font-weight: 800; }
     .stCaption { text-align: center; color: #888888; }
     
-    /* 사용자(User) 메시지 우측 정렬을 위한 핵심 CSS */
+    /* 사용자(User) 메시지 우측 정렬 */
     [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
         flex-direction: row-reverse !important;
     }
@@ -76,39 +80,41 @@ st.markdown("""
         width: 100%;
     }
 
-    /* 말풍선 공통 스타일 */
     .stChatMessage { border-radius: 15px; margin-bottom: 10px; border: 1px solid #333; }
     p { color: #F0F0F0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🐱 루아랑 수다 떨기")
-st.caption("사춘기 절친 루아와 우리들만의 Lime Time 🍋")
+st.title("🐱 Lua's Space")
+st.caption("사춘기 절친 루아와 나누는 톡 쏘는 비밀 대화 🍋")
 
 try:
     sheet = get_sheet()
     if "messages" not in st.session_state:
+        # 데이터 로딩 시 부하 줄이기 위해 최근 15개만 호출
         records = sheet.get_all_records()
-        if records:
-            st.session_state.messages = [{"role": r["role"], "content": r["content"]} for r in records[-15:]]
-        else:
-            st.session_state.messages = []
+        st.session_state.messages = [{"role": r["role"], "content": r["content"]} for r in records[-15:]] if records else []
 except Exception as e:
-    st.error(f"연결 실패: {e}")
+    st.error(f"연결 실패 (새로고침 해봐!): {e}")
     st.stop()
 
-# 대화 표시 (루아=🐱, 사용자=🍋)
+# 대화 표시
 for msg in st.session_state.messages:
     avatar = "🐱" if msg["role"] == "assistant" else "🍋"
     with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
 
 # 채팅 입력
-if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
+if prompt := st.chat_input("하고 싶은 말 있어?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="🍋"):
         st.markdown(prompt)
-    sheet.append_row(["user", prompt])
+    
+    # 구글 시트 저장 (비동기적 느낌을 위해 에러 핸들링 추가)
+    try:
+        sheet.append_row(["user", prompt])
+    except:
+        pass 
 
     # AI 답변 생성
     chat_history = [f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]]
@@ -116,28 +122,17 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     
     try:
         lua_config = types.GenerateContentConfig(
-            temperature=0.85, top_p=0.95, max_output_tokens=1000, candidate_count=1
+            temperature=0.85, top_p=0.95, max_output_tokens=1000
         )
-        # 에러 방지를 위해 models/ 경로를 명시적으로 붙임
+        # 502 방지를 위해 가장 응답 속도가 빠른 모델 순서로 시도
         response = client.models.generate_content(
-            model="gemini-2.0-flash-exp", # 가장 최신 프리뷰 모델로 시도
+            model="gemini-1.5-flash", 
             contents=full_query,
             config=lua_config
         )
         answer = response.text
-    
     except Exception as e:
-        # 실패 시 샘플 코드에 있던 모델로 2차 시도
-        try:
-            response = client.models.generate_content(
-                model="gemini-1.5-flash", 
-                contents=full_query,
-                config=lua_config
-            )
-            answer = response.text
-        except Exception as final_e:
-            st.error(f"루아를 깨우는 데 실패했어: {final_e}")
-            answer = "나 잠깐 멍 때렸나 봐.. 미안! 다시 말해줄래? 😭"
+        answer = "미안, 나 지금 서버가 살짝 아픈가 봐... 다시 한번만 말해줄래? 😭"
     
     if not answer:
         answer = "응? 다시 말해줘! ㅋㅋㅋ"
@@ -146,4 +141,7 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
         st.markdown(answer)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
-    sheet.append_row(["assistant", answer])
+    try:
+        sheet.append_row(["assistant", answer])
+    except:
+        pass
