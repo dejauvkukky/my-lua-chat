@@ -5,8 +5,13 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 # --- 1. 필수 정보 설정 (직접 입력하세요) ---
 # 직접 입력 대신 Streamlit의 설정을 읽어오도록 변경
-GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
-SHEET_ID = "1u5uuGppgo8iNuJ28nG-jA3Syf1F5uSMkqTYWrU4a_xI"
+try:
+    GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+    SHEET_ID = st.secrets["SHEET_ID"]
+except KeyError:
+    st.error("앗! 스트림릿 설정(Secrets)에 키 값이 저장되지 않았어. 관리자 설정을 확인해줘! 🥺")
+    st.stop()
+
 SERVICE_ACCOUNT_INFO = {
     # 다운로드받은 JSON 파일의 내용을 그대로 여기에 복사해서 넣으세요
   "type": "service_account",
