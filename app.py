@@ -73,7 +73,7 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
     response = client.models.generate_content(
-        model="models/gemini-1.5-flash",
+        model="gemini-1.5-flash",
         contents=full_query
     )
     answer = response.text
