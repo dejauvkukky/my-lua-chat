@@ -16,7 +16,7 @@ except Exception as e:
 # --- 2. 초기 설정 ---
 client = genai.Client(
     api_key=st.secrets["GEMINI_API_KEY"],
-    http_options={'api_version': 'v1'} # v1beta가 아닌 정식 v1으로 강제 지정
+    http_options={'api_version': 'v1'} # 정식 v1 버전 사용
 )
 
 def get_sheet():
@@ -76,8 +76,7 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
     try:
-        # 2026년 기준 가장 확실한 호출 방식입니다. 
-        # 'models/' 접두사를 라이브러리가 알아서 붙이도록 모델명만 전달합니다.
+        # 'models/'를 절대 붙이지 마세요. 라이브러리가 알아서 처리하게 둡니다.
         response = client.models.generate_content(
             model="gemini-1.5-flash", 
             contents=full_query
@@ -85,17 +84,16 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
         answer = response.text
     
     except Exception as e:
-        # 만약 위 방법이 실패하면, 라이브러리를 거치지 않는 '전체 ID' 방식을 시도합니다.
+        # 만약 위 방법도 실패(404)한다면, 주소 자동 생성을 방해하지 않는 'ID 방식' 시도
         try:
-            # 이 형식은 구글 서버가 인식하는 절대 경로입니다.
             response = client.models.generate_content(
-                model="publishers/google/models/gemini-1.5-flash",
+                model="gemini-1.5-pro", # 다른 주력 모델로 테스트
                 contents=full_query
             )
             answer = response.text
-        except Exception as e2:
-            st.error(f"최종 오류 로그: {e2}")
-            answer = "루아가 잠시 자고 있어. 다시 깨워볼까? 🎀"
+        except Exception as final_e:
+            st.error(f"최종 호출 실패: {final_e}")
+            answer = "지금 루아가 깊은 잠에 빠졌나 봐. API 키를 다시 확인해볼까? 😭"
     st.markdown(answer)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
