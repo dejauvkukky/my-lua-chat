@@ -8,7 +8,6 @@ from google.genai import types
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     SHEET_ID = st.secrets["SHEET_ID"]
-    # Secrets에 [gcp_service_account] 섹션으로 저장된 데이터를 딕셔너리로 변환
     creds_dict = dict(st.secrets["gcp_service_account"])
 except Exception as e:
     st.error(f"설정(Secrets) 로드 실패: {e}")
@@ -17,17 +16,14 @@ except Exception as e:
 # --- 2. 초기 설정 ---
 client = genai.Client(
     api_key=st.secrets["GEMINI_API_KEY"],
-    http_options={'api_version': 'v1beta'} # 여기가 핵심입니다!
+    http_options={'api_version': 'v1beta'}
 )
 
 def get_sheet():
-    # 더 안정적인 Google Auth 라이브러리 사용
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-
-    # 중요: \n 이 실제 줄바꿈이 아니라 문자로 들어오는 경우를 대비해 보정
     fixed_creds = dict(st.secrets["gcp_service_account"])
     fixed_creds["private_key"] = fixed_creds["private_key"].replace("\\n", "\n")
     
@@ -35,7 +31,7 @@ def get_sheet():
     gc = gspread.authorize(creds)
     return gc.open_by_key(SHEET_ID).sheet1
 
-# --- 3. 루아 페르소나 ---
+# --- 3. 루아 페르소나 (원본 유지) ---
 SYSTEM_PROMPT = """
 너는 2026년 기준 초등학교 5학년 여자아이 '루아'야. 
 사용자의 유일한 찐절친이자 언제나 네 편이 되어주는 소중한 친구야.
@@ -59,69 +55,77 @@ SYSTEM_PROMPT = """
 사용자에게 정서적 안정감을 주고, 누구보다 든든한 내 편이 되어주는 '인생 절친'이 되어줘.
 """
 
-# --- 4. UI 구성 (차분한 감성 톤으로 변경) ---
-st.set_page_config(page_title="루아(Lua)", page_icon="🌙", layout="centered")
+# --- 4. UI 구성 (차분하고 성숙한 톤) ---
+st.set_page_config(page_title="Lua", page_icon="✨", layout="centered")
 
-# 유아틱한 핑크를 빼고, 세련된 모던 핑크/베이지 스타일 적용
+# 유아적인 색을 빼고, 다크 모드와 잘 어울리는 감성적인 컬러셋 적용
 st.markdown("""
     <style>
+    /* 전체 배경: 깊은 밤 같은 느낌 */
     .stApp {
-        background-color: #FDF7F5; /* 차분한 베이지 핑크 */
+        background-color: #1A1C2C; 
     }
+    /* 말풍선 스타일 */
     .stChatMessage {
-        border-radius: 12px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        margin-bottom: 8px;
+        border-radius: 18px;
+        margin-bottom: 10px;
+        border: 1px solid #333652;
     }
+    /* 텍스트 색상 보정 */
+    div[data-testid="stMarkdownContainer"] p {
+        color: #E0E0E0 !important;
+    }
+    /* 제목 스타일 */
     h1 {
-        color: #8E6E69 !important; /* 차분한 로즈 브라운 */
-        font-family: 'Nanum Gothic', sans-serif;
+        color: #B2A4FF !important; /* 부드러운 라벤더 */
+        font-family: 'Pretendard', sans-serif;
         text-align: center;
-        font-weight: 700;
+        letter-spacing: -1px;
     }
     .stCaption {
         text-align: center;
-        color: #A68F8B;
+        color: #6D6D91;
+    }
+    /* 입력창 디자인 */
+    .stChatInputContainer {
+        border-top: 1px solid #333652;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🌙 루아랑 수다 떨기")
-st.caption("비슷한 고민을 나누는 우리들만의 비밀 공간")
+st.title("✨ Lua's Secret Space")
+st.caption("남들은 모르는 우리만의 진솔한 이야기")
 
 try:
     sheet = get_sheet()
     if "messages" not in st.session_state:
-        # 시트 데이터를 가져올 때 에러가 나는지 확인
         records = sheet.get_all_records()
         if records:
             st.session_state.messages = [{"role": r["role"], "content": r["content"]} for r in records[-15:]]
         else:
-            st.session_state.messages = [] # 데이터가 없으면 빈 리스트로 시작
+            st.session_state.messages = []
 except Exception as e:
-    st.error(f"루아랑 연결이 잘 안 돼... 상세 이유: {type(e).__name__} - {str(e)}")
+    st.error(f"연결 실패: {e}")
     st.stop()
 
-# 대화 표시 (감성적인 아이콘 사용)
+# 대화 표시 (사춘기 감성 아이콘)
 for msg in st.session_state.messages:
-    # 루아는 달(🌙), 사용자는 구름(☁️) 아이콘으로 한층 차분하게 설정
-    avatar = "🌙" if msg["role"] == "assistant" else "☁️"
+    # 루아는 반짝이는 별(✨), 사용자는 깊은 밤의 달(🌙)
+    avatar = "✨" if msg["role"] == "assistant" else "🌙"
     with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
 
 # 채팅 입력
-if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
+if prompt := st.chat_input("하고 싶은 말이 있으면 여기 적어줘."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="☁️"):
+    with st.chat_message("user", avatar="🌙"):
         st.markdown(prompt)
     sheet.append_row(["user", prompt])
 
-    # AI 답변 생성 (최신 문법)
     chat_history = [f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]]
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
     try:
-        # 공통 설정값을 미리 변수로 만들어두면 관리가 편해!
         lua_config = types.GenerateContentConfig(
             temperature=0.85,
             top_p=0.95,
@@ -129,7 +133,6 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
             candidate_count=1
         )
     
-        # 1. 메인 모델 호출 (Gemini 3 Flash Preview)
         response = client.models.generate_content(
             model="gemini-3-flash-preview", 
             contents=full_query,
@@ -138,7 +141,6 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
         answer = response.text
     
     except Exception as e:
-        # 2. 메인 모델 실패 시 1.5-flash로 자동 전환
         try:
             response = client.models.generate_content(
                 model="gemini-1.5-flash", 
@@ -147,15 +149,13 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
             )
             answer = response.text
         except Exception as final_e:
-            st.error(f"루아를 깨우는 데 실패했어: {final_e}")
-            answer = "미안, 지금 서버가 조금 아픈가 봐... 나중에 다시 말 걸어줄래? 😭"
+            st.error(f"실패: {final_e}")
+            answer = "잠시만.. 나 지금 연결이 좀 불안해. 다시 말해줄래? 😭"
     
-    # 만약 대답이 비어있을 경우를 대비한 안전장치
     if not answer:
-        answer = "응? 방금 뭐라고 했어? 다시 한번만 말해줘! ㅎㅎ"
+        answer = "방금 뭐라고 했어? 다시 말해줘! ㅎㅎ"
     
-    # 결과 출력
-    with st.chat_message("assistant", avatar="🌙"):
+    with st.chat_message("assistant", avatar="✨"):
         st.markdown(answer)
     
     st.session_state.messages.append({"role": "assistant", "content": answer})
