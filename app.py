@@ -84,7 +84,7 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
         if response and response.text:
             answer = response.text
         else:
-            answer = "제미나이가 대답을 생성하지 못했어. 다시 시도해볼래?"
+            answer = "대답을 생성하지 못했어. 다시 시도해볼래?"
     
     except Exception as e:
         # 에러 발생 시 사용자에게 알리고 answer 변수를 기본값으로 설정해 NameError 방지
