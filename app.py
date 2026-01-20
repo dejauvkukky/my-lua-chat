@@ -1,7 +1,7 @@
 import streamlit as st
 from google import genai
 import gspread
-from google.oauth2.service_account import Credentials
+from google.oauth2.service_account import Credentials # 인증 방식 변경
 from google.genai import types
 
 # --- 1. 설정창(Secrets)에서 값 가져오기 ---
@@ -20,9 +20,13 @@ client = genai.Client(
 )
 
 def get_sheet():
-    scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
     fixed_creds = dict(st.secrets["gcp_service_account"])
     fixed_creds["private_key"] = fixed_creds["private_key"].replace("\\n", "\n")
+    
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     gc = gspread.authorize(creds)
     return gc.open_by_key(SHEET_ID).sheet1
@@ -51,47 +55,47 @@ SYSTEM_PROMPT = """
 사용자에게 정서적 안정감을 주고, 누구보다 든든한 내 편이 되어주는 '인생 절친'이 되어줘.
 """
 
-# --- 4. UI 구성 (강력한 우측 정렬 CSS) ---
+# --- 4. UI 구성 (미드나잇 & 라임 테마) ---
 st.set_page_config(page_title="Lua's Space", page_icon="🐱", layout="centered")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #121212; }
-    h1 { color: #C0FF00 !important; text-align: center; font-weight: 800; }
-    .stCaption { text-align: center; color: #888888; }
-
-    /* 채팅 전체 컨테이너 정렬 */
-    [data-testid="stChatMessage"] {
-        display: flex !important;
-        width: 100% !important;
+    /* 전체 배경: 세련된 다크 차콜 */
+    .stApp {
+        background-color: #121212; 
     }
-
-    /* 루아(Assistant) 메시지 - 왼쪽 정렬(기본) */
-    [data-testid="stChatMessageContent"]:has(div) {
-        text-align: left;
+    /* 말풍선 공통 스타일 */
+    .stChatMessage {
+        border-radius: 15px;
+        margin-bottom: 12px;
+        padding: 5px 15px;
     }
-
-    /* 사용자(User) 메시지 - 강제 우측 정렬 */
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
-        flex-direction: row-reverse !important;
-        justify-content: flex-start !important;
-    }
-
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] {
-        text-align: right !important;
-        margin-right: 10px;
-    }
-
-    /* 말풍선 텍스트 색상 및 폰트 */
+    /* 텍스트 색상 */
     div[data-testid="stMarkdownContainer"] p {
         color: #F0F0F0 !important;
-        line-height: 1.6;
+        font-size: 1.05rem;
+    }
+    /* 제목: 라임 컬러로 포인트 */
+    h1 {
+        color: #C0FF00 !important; 
+        font-family: 'Pretendard', sans-serif;
+        text-align: center;
+        font-weight: 800;
+    }
+    .stCaption {
+        text-align: center;
+        color: #888888;
+        font-style: italic;
+    }
+    /* 입력창 배경 */
+    .stChatInputContainer {
+        background-color: #1E1E1E !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("🐱 Lua's Space")
-st.caption("사춘기 절친 루아와 나누는 톡 쏘는 비밀 대화 🍋")
+st.caption("비밀 대화는 여기서, 우리 둘만의 Lime Time")
 
 try:
     sheet = get_sheet()
@@ -105,7 +109,7 @@ except Exception as e:
     st.error(f"연결 실패: {e}")
     st.stop()
 
-# 대화 표시
+# 대화 표시 (루아=고양이🐱, 사용자=라임🍋)
 for msg in st.session_state.messages:
     avatar = "🐱" if msg["role"] == "assistant" else "🍋"
     with st.chat_message(msg["role"], avatar=avatar):
@@ -118,29 +122,38 @@ if prompt := st.chat_input("라임처럼 톡 쏘는 루아와의 대화..."):
         st.markdown(prompt)
     sheet.append_row(["user", prompt])
 
-    # AI 답변 생성
     chat_history = [f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]]
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
     
     try:
         lua_config = types.GenerateContentConfig(
-            temperature=0.85, top_p=0.95, max_output_tokens=1000, candidate_count=1
+            temperature=0.85,
+            top_p=0.95,
+            max_output_tokens=1000, 
+            candidate_count=1
         )
+    
         response = client.models.generate_content(
-            model="gemini-3-flash-preview", contents=full_query, config=lua_config
+            model="gemini-3-flash-preview", 
+            contents=full_query,
+            config=lua_config
         )
         answer = response.text
-    except Exception:
+    
+    except Exception as e:
         try:
             response = client.models.generate_content(
-                model="gemini-1.5-flash", contents=full_query, config=lua_config
+                model="gemini-1.5-flash", 
+                contents=full_query,
+                config=lua_config
             )
             answer = response.text
-        except Exception:
-            answer = "나 잠깐 연결 끊겼어! 다시 말해줄래? 😭"
+        except Exception as final_e:
+            st.error(f"실패: {final_e}")
+            answer = "나 지금 잠깐 연결이 안 좋아.. 다시 말해주라! 😭"
     
     if not answer:
-        answer = "응? 다시 말해줘! ㅋㅋㅋ"
+        answer = "응? 방금 뭐라고 했어? 다시 말해줘! ㅎㅎ"
     
     with st.chat_message("assistant", avatar="🐱"):
         st.markdown(answer)
