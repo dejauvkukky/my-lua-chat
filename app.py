@@ -200,7 +200,7 @@ if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
     main_config = types.GenerateContentConfig(
         temperature=0.8,
         top_p=0.9,
-        max_output_tokens=500,
+        max_output_tokens=600,
         candidate_count=1
     )
 
