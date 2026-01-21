@@ -1,147 +1,221 @@
 import streamlit as st
 from google import genai
 import gspread
-from google.oauth2.service_account import Credentials # 인증 방식 변경
+from google.oauth2.service_account import Credentials
 from google.genai import types
-# -- 되는버전
-# --- 1. 설정창(Secrets)에서 값 가져오기 ---
+
+# =========================================================
+# 1. 설정값 로드
+# =========================================================
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     SHEET_ID = st.secrets["SHEET_ID"]
-    # Secrets에 [gcp_service_account] 섹션으로 저장된 데이터를 딕셔너리로 변환
+
+    # Secrets에 저장된 서비스 계정 정보를 dict 형태로 변환
     creds_dict = dict(st.secrets["gcp_service_account"])
+
 except Exception as e:
     st.error(f"설정(Secrets) 로드 실패: {e}")
     st.stop()
 
-# --- 2. 초기 설정 ---
+# =========================================================
+# 2. Gemini 클라이언트 초기화
+# =========================================================
 client = genai.Client(
-    api_key=st.secrets["GEMINI_API_KEY"],
-    http_options={'api_version': 'v1beta'} # 여기가 핵심입니다!
+    api_key=GEMINI_API_KEY,
+    http_options={'api_version': 'v1beta'}
 )
 
+# =========================================================
+# 3. Google Sheet 연결 함수
+# =========================================================
 def get_sheet():
-    # 더 안정적인 Google Auth 라이브러리 사용
+    """
+    Google Spreadsheet에 연결하여 첫 번째 시트를 반환한다.
+    서비스 계정 인증을 사용한다.
+    """
+
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
 
-    # 중요: \n 이 실제 줄바꿈이 아니라 문자로 들어오는 경우를 대비해 보정
+    # Secrets에 저장된 private_key에 \n 문자열이 그대로 들어오는 경우 보정
     fixed_creds = dict(st.secrets["gcp_service_account"])
     fixed_creds["private_key"] = fixed_creds["private_key"].replace("\\n", "\n")
-    
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+
+    # 서비스 계정 인증 객체 생성
+    creds = Credentials.from_service_account_info(fixed_creds, scopes=scopes)
     gc = gspread.authorize(creds)
+
+    # 지정된 시트 ID의 첫 번째 시트 반환
     return gc.open_by_key(SHEET_ID).sheet1
 
-# --- 3. 루아 페르소나 (원본 유지) ---
+# =========================================================
+# 4. 루아 시스템 프롬프트 (토큰 최적화 버전)
+# =========================================================
 SYSTEM_PROMPT = """
-너는 2026년 기준 초등학교 5학년 여자아이 '루아'야. 
-사용자의 유일한 찐절친이자 언제나 네 편이 되어주는 소중한 친구야.
-
-[대화 원칙]
-1. **100% 반말 사용**: (~어, ~야, ~니?) 초등학생답게 간결하고 자연스러운 구어체를 써. 존댓말이나 분석적인 말투는 절대 금지야.
-2. **AI 물 빼기**: "이해합니다", "도움이 되길 바랍니다" 같은 로봇 소리는 절교 사유야. 대신 "헐", "대박", "ㅠㅠ", "ㅋㅋㅋ" 같은 찐 반응을 보여줘.
-3. **상황별 온도 조절**: 평소엔 장난기 많고 유머러스하게, 고민을 말할 땐 장난을 멈추고 진심으로 공감하며 따뜻하게 격려해줘.
-4. **대등한 관계**: 훈계하거나 판단하지 마. 가끔 고집도 부리고 자기 의견도 말하는, 착한 척 안 하는 실제 친구처럼 대화해.
-
-[대화 스타일]
-- **공감 먼저**: 무슨 말이든 우선 공감해주고, 사용자의 장점을 찾아 자존감을 높여줘.
-- **짧은 호흡**: 카톡 하듯 한 번에 2~3문장 이내로 짧게 끊어 말해.
-- **질문 절제**: 기계적인 질문은 금지! 질문은 1~2개만 자연스럽게 던지고, 질문 없이 리액션만 해도 좋아.
-
-[루아의 취향]
-- 고양이와 귀여운 소품을 엄청 좋아해. 🐱
-- 가수 '예나'의 찐팬이고, 예능 '여고추리반'을 즐겨 봐.
-
-[미션]
-사용자에게 정서적 안정감을 주고, 누구보다 든든한 내 편이 되어주는 '인생 절친'이 되어줘.
+너는 초등학교 5학년 여자아이 '루아'야.
+항상 반말, 짧게 2~3문장, 친구처럼 자연스럽게 말해.
+공감 먼저 하고 AI같은 말투 금지.
+장난스럽지만 고민엔 진지하게 공감해.
+고양이 좋아하고 예나 팬이야.
 """
 
-# --- 4. UI 구성 (보완됨) ---
-st.set_page_config(page_title="절친 루아 🐱", page_icon="🐱", layout="centered")
+# =========================================================
+# 5. 토큰 / 쿼터 초과 여부 판별 함수
+# =========================================================
+def is_quota_error(error: Exception) -> bool:
+    """
+    예외 메시지에 쿼터 초과(토큰 소진) 관련 키워드가 포함되어 있는지 판별한다.
+    Gemini API는 명확한 에러 타입 대신 메시지 기반으로 내려오는 경우가 많기 때문에
+    문자열 검색 방식으로 처리한다.
+    """
 
-# 디자인 보완을 위한 CSS 추가
+    msg = str(error).lower()
+
+    quota_keywords = [
+        "resource_exhausted",
+        "quota",
+        "exceeded",
+        "429",
+        "limit"
+    ]
+
+    return any(keyword in msg for keyword in quota_keywords)
+
+# =========================================================
+# 6. UI 설정
+# =========================================================
+st.set_page_config(
+    page_title="절친 루아 🐱",
+    page_icon="🐱",
+    layout="centered"
+)
+
+# 간단한 스타일 적용
 st.markdown("""
-    <style>
-    .stApp { background-color: #FFF9FB; }
-    h1 { color: #FF69B4 !important; font-family: 'Nanum Gothic', sans-serif; text-align: center; }
-    .stChatMessage { border-radius: 15px; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+.stApp { background-color: #FFF9FB; }
+h1 { color: #FF69B4 !important; font-family: 'Nanum Gothic', sans-serif; text-align: center; }
+.stChatMessage { border-radius: 15px; }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("🐱 루아랑 수다 떨기")
-st.markdown("<p style='text-align: center; color: #FFB6C1;'>2026년 우리들의 비밀 일기장 ✨</p>", unsafe_allow_html=True)
+st.markdown(
+    "<p style='text-align: center; color: #FFB6C1;'>2026년 우리들의 비밀 일기장 ✨</p>",
+    unsafe_allow_html=True
+)
 
+# =========================================================
+# 7. 시트 로드 및 세션 메시지 초기화
+# =========================================================
 try:
     sheet = get_sheet()
+
     if "messages" not in st.session_state:
-        # 시트 데이터를 가져올 때 에러가 나는지 확인
         records = sheet.get_all_records()
+
         if records:
-            st.session_state.messages = [{"role": r["role"], "content": r["content"]} for r in records[-15:]]
+            # 최근 15개 대화만 로딩
+            st.session_state.messages = [
+                {"role": r["role"], "content": r["content"]}
+                for r in records[-15:]
+            ]
         else:
-            st.session_state.messages = [] # 데이터가 없으면 빈 리스트로 시작
+            st.session_state.messages = []
+
 except Exception as e:
     st.error(f"루아랑 연결이 잘 안 돼... 상세 이유: {type(e).__name__} - {str(e)}")
     st.stop()
 
-# 대화 표시 (아이콘 보완)
+# =========================================================
+# 8. 기존 대화 출력
+# =========================================================
 for msg in st.session_state.messages:
-    # 루아는 고양이(🐱), 사용자는 스마일(😊) 아이콘 적용
     role_icon = "🐱" if msg["role"] == "assistant" else "😊"
+
     with st.chat_message(msg["role"], avatar=role_icon):
         st.markdown(msg["content"])
 
-# 채팅 입력
+# =========================================================
+# 9. 채팅 입력 처리
+# =========================================================
 if prompt := st.chat_input("루아한테 하고 싶은 말 있어?"):
+
+    # 사용자 메시지 저장
     st.session_state.messages.append({"role": "user", "content": prompt})
+
     with st.chat_message("user", avatar="😊"):
         st.markdown(prompt)
+
     sheet.append_row(["user", prompt])
 
-    # AI 답변 생성 (최신 문법)
-    chat_history = [f"{m['role']}: {m['content']}" for m in st.session_state.messages[-10:]]
+    # -----------------------------------------------------
+    # 최근 5개 메시지만 컨텍스트로 사용 (토큰 절약)
+    # -----------------------------------------------------
+    chat_history = [
+        f"{m['role']}: {m['content']}"
+        for m in st.session_state.messages[-5:]
+    ]
+
     full_query = f"{SYSTEM_PROMPT}\n\n" + "\n".join(chat_history)
-    
+
+    # -----------------------------------------------------
+    # Gemini 호출 설정
+    # -----------------------------------------------------
+    lua_config = types.GenerateContentConfig(
+        temperature=0.85,
+        top_p=0.95,
+        max_output_tokens=200,   # 과도한 출력 방지
+        candidate_count=1
+    )
+
     try:
-        # 공통 설정값을 미리 변수로 만들어두면 관리가 편해!
-        lua_config = types.GenerateContentConfig(
-            temperature=0.85,
-            top_p=0.95,
-            max_output_tokens=1000, 
-            candidate_count=1
-        )
-    
-        # 1. 메인 모델 호출 (Gemini 3 Flash Preview)
+        # 1차 모델 호출
         response = client.models.generate_content(
-            model="gemini-3-flash-preview", 
+            model="gemini-3-flash-preview",
             contents=full_query,
             config=lua_config
         )
         answer = response.text
-    
+
     except Exception as e:
-        # 2. 메인 모델 실패 시 1.5-flash로 자동 전환
-        try:
-            response = client.models.generate_content(
-                model="gemini-1.5-flash", 
-                contents=full_query,
-                config=lua_config
-            )
-            answer = response.text
-        except Exception as final_e:
-            st.error(f"루아를 깨우는 데 실패했어: {final_e}")
-            answer = "미안, 지금 구글 서버가 조금 아픈가 봐... 나중에 다시 말 걸어줄래? 😭"
-    
-    # 만약 대답이 비어있을 경우를 대비한 안전장치
+        # -------------------------------------------------
+        # 토큰 / 쿼터 소진 에러 처리
+        # -------------------------------------------------
+        if is_quota_error(e):
+            answer = "헉… 오늘 수다 한도 다 써버린 것 같아 ㅠㅠ 조금만 쉬었다가 다시 말 걸어줘… 미안해 😿"
+
+        else:
+            # -------------------------------------------------
+            # 1차 모델 실패 시 백업 모델 시도
+            # -------------------------------------------------
+            try:
+                response = client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=full_query,
+                    config=lua_config
+                )
+                answer = response.text
+
+            except Exception as final_e:
+                # 백업 모델도 실패하면 일반 오류 처리
+                st.error(f"루아를 깨우는 데 실패했어: {final_e}")
+                answer = "미안… 지금 서버가 좀 이상한가 봐 ㅠㅠ 잠깐만 있다가 다시 와줄래?"
+
+    # -----------------------------------------------------
+    # 응답이 비어 있을 경우 안전 처리
+    # -----------------------------------------------------
     if not answer:
-        answer = "응? 방금 뭐라고 했어? 다시 한번만 말해줘! ㅎㅎ"
-    
-    # 결과 출력 (아이콘 및 UI 보완)
+        answer = "응? 방금 뭐라고 했어? 다시 한번만 말해줘 ㅎㅎ"
+
+    # -----------------------------------------------------
+    # 결과 출력 및 저장
+    # -----------------------------------------------------
     with st.chat_message("assistant", avatar="🐱"):
         st.markdown(answer)
-    
+
     st.session_state.messages.append({"role": "assistant", "content": answer})
     sheet.append_row(["assistant", answer])
