@@ -3,7 +3,7 @@ from google import genai
 import gspread
 from google.oauth2.service_account import Credentials # 인증 방식 변경
 from google.genai import types
-
+# -- 되는버전
 # --- 1. 설정창(Secrets)에서 값 가져오기 ---
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
